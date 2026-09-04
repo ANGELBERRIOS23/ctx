@@ -189,7 +189,34 @@ pub async fn login_with_credentials(server_url: &str, email: &str, password: &st
         store_credentials(email_trimmed, &auth_response.access_token)?;
         Ok(auth_response)
     } else if status == reqwest::StatusCode::UNAUTHORIZED {
-        bail!("Authentication failed: invalid email or password.");
+        // Auto-register: ask user if they want to create an account
+        println!(
+            "{}",
+            style("  Account not found. Creating new account...").yellow()
+        );
+        let register_endpoint = format!("{}/api/auth/register", normalized_base);
+        let reg_response = client
+            .post(&register_endpoint)
+            .json(&payload)
+            .send()
+            .await
+            .with_context(|| "Failed to register new account")?;
+
+        if reg_response.status().is_success() {
+            let auth_response: AuthResponse = reg_response
+                .json()
+                .await
+                .context("Failed to deserialize registration response")?;
+            store_credentials(email_trimmed, &auth_response.access_token)?;
+            println!(
+                "  {} New account created and authenticated.",
+                style("✓").green().bold()
+            );
+            Ok(auth_response)
+        } else {
+            let err = reg_response.text().await.unwrap_or_default();
+            bail!("Registration failed: {}", err.trim());
+        }
     } else if status == reqwest::StatusCode::BAD_REQUEST {
         bail!("Authentication failed: invalid email format or empty credentials.");
     } else {
