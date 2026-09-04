@@ -1,0 +1,60 @@
+services:
+  ctx-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ctx-server
+    restart: unless-stopped
+    ports:
+      - "9900:9900"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgres://${POSTGRES_USER:-ctx}:${POSTGRES_PASSWORD:-ctxpassword}@db:5432/${POSTGRES_DB:-ctx}}
+      - BLOB_ENDPOINT=${BLOB_ENDPOINT:-http://minio:9000}
+      - S3_ENDPOINT=${BLOB_ENDPOINT:-http://minio:9000}
+      - S3_BUCKET=${S3_BUCKET:-ctx-blobs}
+      - JWT_SECRET=${JWT_SECRET:-insecure-secret-change-in-production}
+      - PORT=9900
+      - RUST_LOG=${RUST_LOG:-info,ctx_server=debug}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    container_name: ctx-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ctx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ctxpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-ctx}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ctx} -d ${POSTGRES_DB:-ctx}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: ctx-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-ctxadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-ctxminiopassword}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - blobdata:/data
+
+volumes:
+  pgdata:
+    driver: local
+  blobdata:
+    driver: local

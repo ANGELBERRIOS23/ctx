@@ -1,0 +1,77 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ctx-core",
+    "crates/ctx-server",
+    "crates/ctx-cli",
+    "crates/ctx-adapters",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Server framework
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "sqlite", "uuid", "chrono", "json"] }
+
+# Auth
+jsonwebtoken = "9"
+argon2 = "0.5"
+
+# Crypto
+age = { version = "0.11", features = ["armor"] }
+rand = "0.8"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+dialoguer = "0.11"
+indicatif = "0.17"
+console = "0.15"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+rmp-serde = "1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# S3/MinIO
+aws-sdk-s3 = "1"
+aws-config = "1"
+
+# mDNS
+mdns-sd = "0.11"
+
+# OS keychain
+keyring = "3"
+
+# Git (pure Rust)
+gix = { version = "0.68", default-features = false, features = ["basic", "revision"] }
+
+# Utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+dirs = "6"
+sha2 = "0.10"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

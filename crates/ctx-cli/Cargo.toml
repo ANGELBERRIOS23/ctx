@@ -1,0 +1,33 @@
+[package]
+name = "ctx-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ctx"
+path = "src/main.rs"
+
+[dependencies]
+ctx-core = { path = "../ctx-core" }
+ctx-adapters = { path = "../ctx-adapters" }
+tokio = { workspace = true }
+clap = { workspace = true }
+dialoguer = { workspace = true }
+indicatif = { workspace = true }
+console = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+keyring = { workspace = true }
+mdns-sd = { workspace = true }
+dirs = { workspace = true }
+axum = { workspace = true }
+age = { workspace = true }
