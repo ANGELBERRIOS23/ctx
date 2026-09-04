@@ -15,7 +15,14 @@ pub use commands::{SecretsCmd, SyncCmd};
 #[derive(Subcommand, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Commands {
     /// Authenticate with the ctx server and save credentials.
-    Login,
+    Login {
+        /// Server URL (e.g. http://52.6.216.78:9900). Saved for future use.
+        #[arg(short, long)]
+        server: Option<String>,
+        /// Connect directly to another machine (P2P mode).
+        #[arg(short, long)]
+        direct: Option<String>,
+    },
     /// Log out and clear saved credentials from the OS keychain.
     Logout,
     /// Initialize a new ctx project in the workspace.
@@ -149,7 +156,7 @@ pub fn init_tracing() {
 /// Dispatches the parsed subcommand to its corresponding handler.
 pub async fn dispatch(command: Commands, config: &GlobalConfig) -> anyhow::Result<()> {
     match command {
-        Commands::Login => commands::login(config).await,
+        Commands::Login { server, direct } => commands::login(config, server.or(direct)).await,
         Commands::Logout => commands::logout(config).await,
         Commands::Init { name } => commands::init(config, &name).await,
         Commands::Doctor => commands::doctor(config).await,

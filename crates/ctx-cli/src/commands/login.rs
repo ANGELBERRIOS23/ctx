@@ -261,8 +261,8 @@ pub async fn run_logout() -> Result<()> {
 }
 
 /// Convenience function executing [`run`], accepting a [`ctx_core::config::GlobalConfig`] reference.
-pub async fn login(_config: &ctx_core::config::GlobalConfig) -> Result<()> {
-    run(None).await
+pub async fn login(_config: &ctx_core::config::GlobalConfig, server_url: Option<String>) -> Result<()> {
+    run(server_url).await
 }
 
 /// Convenience function executing [`run_logout`], accepting a [`ctx_core::config::GlobalConfig`] reference.
