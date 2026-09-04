@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for ctx-server
 # Stage 1: Build ctx-server release binary with Rust 1.85 on Debian Bookworm
-FROM rust:1.85-bookworm AS builder
+FROM rust:latest AS builder
 
 WORKDIR /usr/src/ctx
 
