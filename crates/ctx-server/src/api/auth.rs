@@ -94,6 +94,9 @@ pub struct RegisterRequest {
     pub email: String,
     /// Plaintext password to be securely hashed.
     pub password: String,
+    /// Invitation token required to create an account. Must match REGISTRATION_TOKEN env var.
+    #[serde(default)]
+    pub invite_token: Option<String>,
 }
 
 impl RegisterRequest {
@@ -102,6 +105,7 @@ impl RegisterRequest {
         Self {
             email: email.into(),
             password: password.into(),
+            invite_token: None,
         }
     }
 }
@@ -305,6 +309,18 @@ pub async fn register(
     let email = req.email.trim();
     if email.is_empty() || req.password.is_empty() {
         return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Validate invitation token if REGISTRATION_TOKEN is set
+    let required_token = std::env::var("REGISTRATION_TOKEN").ok();
+    if let Some(ref expected) = required_token {
+        match req.invite_token.as_deref() {
+            Some(provided) if provided == expected.as_str() => {} // valid
+            _ => {
+                tracing::warn!("Registration rejected: invalid or missing invite token for {email}");
+                return Err(StatusCode::FORBIDDEN);
+            }
+        }
     }
 
     let password_hash = hash_password(&req.password).map_err(|err| {

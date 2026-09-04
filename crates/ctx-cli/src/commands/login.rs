@@ -194,10 +194,26 @@ pub async fn login_with_credentials(server_url: &str, email: &str, password: &st
             "{}",
             style("  Account not found. Creating new account...").yellow()
         );
+
+        let invite_token: String = dialoguer::Password::new()
+            .with_prompt("Invite token (ask your admin)")
+            .interact()
+            .context("Failed to read invite token")?;
+
         let register_endpoint = format!("{}/api/auth/register", normalized_base);
+
+        #[derive(serde::Serialize)]
+        struct RegPayload { email: String, password: String, invite_token: Option<String> }
+
+        let reg_payload = RegPayload {
+            email: email_trimmed.to_string(),
+            password: password.to_string(),
+            invite_token: Some(invite_token),
+        };
+
         let reg_response = client
             .post(&register_endpoint)
-            .json(&payload)
+            .json(&reg_payload)
             .send()
             .await
             .with_context(|| "Failed to register new account")?;
@@ -213,6 +229,8 @@ pub async fn login_with_credentials(server_url: &str, email: &str, password: &st
                 style("✓").green().bold()
             );
             Ok(auth_response)
+        } else if reg_response.status() == reqwest::StatusCode::FORBIDDEN {
+            bail!("Registration denied: invalid invite token.");
         } else {
             let err = reg_response.text().await.unwrap_or_default();
             bail!("Registration failed: {}", err.trim());
