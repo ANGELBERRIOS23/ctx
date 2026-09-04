@@ -95,14 +95,13 @@ pub fn resolve_server_url(server_url: Option<String>) -> String {
         }
     }
 
-    if let Ok(current_dir) = std::env::current_dir() {
-        if let Ok(project_config) = ProjectConfig::load(&current_dir) {
+    if let Ok(current_dir) = std::env::current_dir()
+        && let Ok(project_config) = ProjectConfig::load(&current_dir) {
             let server = project_config.project.server.trim();
             if !server.is_empty() {
                 return normalize_server_url(server);
             }
         }
-    }
 
     DEFAULT_SERVER_URL.to_string()
 }

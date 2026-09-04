@@ -23,24 +23,22 @@ pub fn get_auth_token() -> Option<String> {
             return Some(trimmed);
         }
     }
-    if let Ok(entry) = keyring::Entry::new("ctx", "token") {
-        if let Ok(token) = entry.get_password() {
+    if let Ok(entry) = keyring::Entry::new("ctx", "token")
+        && let Ok(token) = entry.get_password() {
             let trimmed = token.trim().to_string();
             if !trimmed.is_empty() {
                 return Some(trimmed);
             }
         }
-    }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let token_path = global_dir.join("token");
-        if token_path.exists() {
-            if let Ok(token) = fs::read_to_string(&token_path) {
+        if token_path.exists()
+            && let Ok(token) = fs::read_to_string(&token_path) {
                 let trimmed = token.trim().to_string();
                 if !trimmed.is_empty() {
                     return Some(trimmed);
                 }
             }
-        }
     }
     None
 }
@@ -67,21 +65,19 @@ pub fn get_public_key() -> Result<String> {
     }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let key_path = global_dir.join("key.txt");
-        if key_path.exists() {
-            if let Ok(content) = fs::read_to_string(&key_path) {
+        if key_path.exists()
+            && let Ok(content) = fs::read_to_string(&key_path) {
                 for line in content.lines() {
                     let trimmed = line.trim();
                     if trimmed.starts_with("age1") {
                         return Ok(trimmed.to_string());
                     }
-                    if trimmed.starts_with("AGE-SECRET-KEY-") {
-                        if let Ok(identity) = trimmed.parse::<age::x25519::Identity>() {
+                    if trimmed.starts_with("AGE-SECRET-KEY-")
+                        && let Ok(identity) = trimmed.parse::<age::x25519::Identity>() {
                             return Ok(identity.to_public().to_string());
                         }
-                    }
                 }
             }
-        }
         // Auto-generate if not found
         let (pub_key, sec_key) = ctx_core::crypto::generate_keypair();
         let _ = fs::create_dir_all(&global_dir);
@@ -93,20 +89,17 @@ pub fn get_public_key() -> Result<String> {
 
 /// Retrieves or generates a persistent machine identifier.
 pub fn get_machine_id() -> Uuid {
-    if let Ok(id_str) = std::env::var("CTX_MACHINE_ID") {
-        if let Ok(id) = Uuid::parse_str(id_str.trim()) {
+    if let Ok(id_str) = std::env::var("CTX_MACHINE_ID")
+        && let Ok(id) = Uuid::parse_str(id_str.trim()) {
             return id;
         }
-    }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let machine_file = global_dir.join("machine_id");
-        if machine_file.exists() {
-            if let Ok(content) = fs::read_to_string(&machine_file) {
-                if let Ok(id) = Uuid::parse_str(content.trim()) {
+        if machine_file.exists()
+            && let Ok(content) = fs::read_to_string(&machine_file)
+                && let Ok(id) = Uuid::parse_str(content.trim()) {
                     return id;
                 }
-            }
-        }
         let new_id = Uuid::new_v4();
         let _ = fs::create_dir_all(&global_dir);
         let _ = fs::write(&machine_file, new_id.to_string());
@@ -132,13 +125,11 @@ pub fn get_git_commit(project_dir: &Path) -> String {
 pub fn discover_registered_projects() -> Vec<PathBuf> {
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let list_path = global_dir.join("projects.json");
-        if list_path.exists() {
-            if let Ok(content) = fs::read_to_string(&list_path) {
-                if let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&content) {
+        if list_path.exists()
+            && let Ok(content) = fs::read_to_string(&list_path)
+                && let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&content) {
                     return paths;
                 }
-            }
-        }
     }
     Vec::new()
 }

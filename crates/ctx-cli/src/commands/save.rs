@@ -40,8 +40,8 @@ pub fn detect_active_agent(project_dir: &Path, config: Option<&ProjectConfig>) -
     }
 
     // 2. Check project configuration for preferred or last used agent
-    if let Some(cfg) = config {
-        if let Some(ref agent_name) = cfg.agents.last_used.as_ref().or(cfg.agents.preferred.as_ref()) {
+    if let Some(cfg) = config
+        && let Some(agent_name) = cfg.agents.last_used.as_ref().or(cfg.agents.preferred.as_ref()) {
             match agent_name.to_ascii_lowercase().as_str() {
                 "claude" | "claude_code" => return Box::new(ClaudeAdapter::new()),
                 "cursor" => return Box::new(CursorAdapter::new()),
@@ -50,7 +50,6 @@ pub fn detect_active_agent(project_dir: &Path, config: Option<&ProjectConfig>) -
                 _ => {}
             }
         }
-    }
 
     // 3. Check for presence of agent instruction files in the workspace
     if project_dir.join("CLAUDE.md").exists() {

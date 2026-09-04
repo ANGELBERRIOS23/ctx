@@ -159,6 +159,7 @@ impl HeartbeatRequest {
 /// If an existing lock is held by another machine:
 /// - If heartbeat is older than 120 seconds, the stale lock is taken over.
 /// - If heartbeat is within 120 seconds, returns [`StatusCode::CONFLICT`].
+///
 /// If held by the same machine, the heartbeat is refreshed.
 ///
 /// Route: `POST /api/session/claim`

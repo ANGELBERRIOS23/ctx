@@ -65,11 +65,10 @@ impl LocalBlobStore {
 impl StorageBackend for LocalBlobStore {
     async fn save_blob(&self, key: &str, data: &[u8]) -> Result<()> {
         let path = self.resolve_path(key)?;
-        if let Some(parent) = path.parent() {
-            if !parent.exists() {
+        if let Some(parent) = path.parent()
+            && !parent.exists() {
                 fs::create_dir_all(parent).await.map_err(StorageError::Io)?;
             }
-        }
         fs::write(&path, data).await.map_err(StorageError::Io)
     }
 

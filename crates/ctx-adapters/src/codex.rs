@@ -54,11 +54,10 @@ impl CodexAdapter {
 
     /// Returns `true` if the `codex` binary is found in `PATH` or the `~/.codex/` directory exists.
     pub fn is_installed(&self) -> bool {
-        if let Some(home) = self.resolve_codex_home() {
-            if home.is_dir() {
+        if let Some(home) = self.resolve_codex_home()
+            && home.is_dir() {
                 return true;
             }
-        }
         is_binary_in_path("codex")
     }
 
@@ -328,27 +327,24 @@ pub fn parse_rollout_file(path: &Path, project_name: &str) -> Result<Handoff> {
         });
 
         if item_type == "session_meta" {
-            if let Some(payload) = val.get("payload") {
-                if let Some(cwd) = payload.get("cwd").and_then(|c| c.as_str()) {
+            if let Some(payload) = val.get("payload")
+                && let Some(cwd) = payload.get("cwd").and_then(|c| c.as_str()) {
                     session_cwd = Some(cwd.to_string());
                 }
-            }
             if session_timestamp.is_none() {
                 session_timestamp = ts;
             }
-        } else if item_type == "response_item" {
-            if let Some(payload) = val.get("payload") {
+        } else if item_type == "response_item"
+            && let Some(payload) = val.get("payload") {
                 let role = payload.get("role").and_then(|r| r.as_str()).unwrap_or("");
-                if role == "user" {
-                    if let Some(content) = payload.get("content") {
+                if role == "user"
+                    && let Some(content) = payload.get("content") {
                         let text = extract_text_from_value(content);
                         if !text.trim().is_empty() {
                             user_messages.push((ts, text));
                         }
                     }
-                }
             }
-        }
     }
 
     let final_project_name = if !project_name.trim().is_empty() && project_name != "unknown" {
@@ -493,17 +489,19 @@ fn extract_text_from_value(content: &serde_json::Value) -> String {
     }
 }
 
-/// Parses state (summary, completed, in_progress, pending, decisions, blockers) from markdown text.
-fn parse_markdown_state(
-    text: &str,
-) -> (
+type ParsedMarkdownState = (
     Option<String>,
     Vec<TaskItem>,
     Vec<TaskItem>,
     Vec<TaskItem>,
     Vec<Decision>,
     Vec<String>,
-) {
+);
+
+/// Parses state (summary, completed, in_progress, pending, decisions, blockers) from markdown text.
+fn parse_markdown_state(
+    text: &str,
+) -> ParsedMarkdownState {
     let mut summary = None;
     let mut completed: Vec<TaskItem> = Vec::new();
     let mut in_progress: Vec<TaskItem> = Vec::new();

@@ -82,11 +82,10 @@ impl ClaudeAdapter {
             };
 
             // Capture session timestamp
-            if let Some(ts_str) = event.get("timestamp").and_then(|v| v.as_str()) {
-                if let Ok(ts) = DateTime::parse_from_rfc3339(ts_str) {
+            if let Some(ts_str) = event.get("timestamp").and_then(|v| v.as_str())
+                && let Ok(ts) = DateTime::parse_from_rfc3339(ts_str) {
                     last_timestamp = Some(ts.with_timezone(&Utc));
                 }
-            }
 
             // Capture session cwd
             if let Some(cwd_str) = event.get("cwd").and_then(|v| v.as_str()) {
@@ -102,13 +101,11 @@ impl ClaudeAdapter {
             }
 
             // Parse structured tasks if present
-            if let Some(attachment) = event.get("attachment") {
-                if attachment.get("type").and_then(|v| v.as_str()) == Some("todo_reminder") {
-                    if let Some(items) = attachment.get("content").and_then(|v| v.as_array()) {
+            if let Some(attachment) = event.get("attachment")
+                && attachment.get("type").and_then(|v| v.as_str()) == Some("todo_reminder")
+                    && let Some(items) = attachment.get("content").and_then(|v| v.as_array()) {
                         parse_structured_todos(items, &mut structured_tasks);
                     }
-                }
-            }
             if let Some(todos) = event.get("todos").and_then(|v| v.as_array()) {
                 parse_structured_todos(todos, &mut structured_tasks);
             }
@@ -317,11 +314,10 @@ impl AgentAdapter for ClaudeAdapter {
 
     fn detect_installed(&self) -> bool {
         // 1. Check if ~/.claude/ directory exists
-        if let Some(home) = dirs::home_dir() {
-            if home.join(".claude").is_dir() {
+        if let Some(home) = dirs::home_dir()
+            && home.join(".claude").is_dir() {
                 return true;
             }
-        }
 
         // 2. Check if 'claude' binary exists in PATH
         Self::check_binary_exists("claude")
@@ -676,11 +672,7 @@ fn parse_checkbox_task(line: &str) -> Option<TaskItem> {
         .or_else(|| trimmed.strip_prefix("[/] "))
     {
         Some(parse_task_item(rest, TaskStatus::Partial))
-    } else if let Some(rest) = trimmed.strip_prefix("[ ] ") {
-        Some(parse_task_item(rest, TaskStatus::Pending))
-    } else {
-        None
-    }
+    } else { trimmed.strip_prefix("[ ] ").map(|rest| parse_task_item(rest, TaskStatus::Pending)) }
 }
 
 /// Extracts list item text after bullet or number marker.
@@ -715,12 +707,11 @@ fn parse_task_item(desc: &str, status: TaskStatus) -> TaskItem {
 /// Parses a decision line formatted as `**what**: why` or `what: why`.
 fn parse_decision(desc: &str) -> Decision {
     let trimmed = desc.trim();
-    if let Some(rest) = trimmed.strip_prefix("**") {
-        if let Some((what, after_what)) = rest.split_once("**:") {
+    if let Some(rest) = trimmed.strip_prefix("**")
+        && let Some((what, after_what)) = rest.split_once("**:") {
             let why = after_what.trim();
             return Decision::now(what.trim(), why);
         }
-    }
     if let Some((what, why)) = trimmed.split_once(':') {
         Decision::now(what.trim(), why.trim())
     } else {
@@ -730,24 +721,21 @@ fn parse_decision(desc: &str) -> Decision {
 
 /// Resolves the local system hostname safely without panicking.
 fn get_hostname() -> String {
-    if let Ok(host) = std::env::var("HOSTNAME") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOSTNAME")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(host) = std::env::var("HOST") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOST")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(output) = std::process::Command::new("hostname").output() {
-        if output.status.success() {
+    if let Ok(output) = std::process::Command::new("hostname").output()
+        && output.status.success() {
             let host = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !host.is_empty() {
                 return host;
             }
         }
-    }
     "unknown-host".to_string()
 }
 

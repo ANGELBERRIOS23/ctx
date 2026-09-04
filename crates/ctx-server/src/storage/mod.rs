@@ -169,11 +169,10 @@ pub trait StorageBackend: Send + Sync {
         let mut snapshots = Vec::new();
         for id in index.into_iter().take(limit) {
             let key = format!("snapshots/{}/{}.json", project_id, id);
-            if let Some(data) = self.get_blob(&key).await? {
-                if let Ok(snapshot) = serde_json::from_slice::<SyncSnapshot>(&data) {
+            if let Some(data) = self.get_blob(&key).await?
+                && let Ok(snapshot) = serde_json::from_slice::<SyncSnapshot>(&data) {
                     snapshots.push(snapshot);
                 }
-            }
         }
         Ok(snapshots)
     }

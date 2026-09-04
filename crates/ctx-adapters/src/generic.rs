@@ -580,8 +580,8 @@ fn parse_task_item(line: &str, default_status: Option<TaskStatus>) -> Option<Tas
 fn parse_decision_item(line: &str) -> Option<Decision> {
     let line = strip_markdown_bullet(line)?;
 
-    if let Some(rest) = line.strip_prefix("**") {
-        if let Some((what, remainder)) = rest.split_once("**") {
+    if let Some(rest) = line.strip_prefix("**")
+        && let Some((what, remainder)) = rest.split_once("**") {
             let remainder = remainder.strip_prefix(':').unwrap_or(remainder).trim();
             let (why, when) = if let Some((w, when_part)) = remainder.split_once("*(when:") {
                 let when_str = when_part
@@ -598,7 +598,6 @@ fn parse_decision_item(line: &str) -> Option<Decision> {
             };
             return Some(Decision::new(what.trim(), why, when));
         }
-    }
 
     if let Some((what, why)) = line.split_once(':') {
         Some(Decision::now(what.trim(), why.trim()))

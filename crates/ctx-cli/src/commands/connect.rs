@@ -67,8 +67,8 @@ pub fn discover_servers(timeout: Duration) -> Result<Vec<String>> {
     let start = std::time::Instant::now();
 
     while start.elapsed() < timeout {
-        if let Ok(event) = receiver.recv_timeout(Duration::from_millis(50)) {
-            if let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
+        if let Ok(event) = receiver.recv_timeout(Duration::from_millis(50))
+            && let mdns_sd::ServiceEvent::ServiceResolved(info) = event {
                 discovered.push(format!(
                     "{} ({}:{})",
                     info.get_fullname(),
@@ -76,7 +76,6 @@ pub fn discover_servers(timeout: Duration) -> Result<Vec<String>> {
                     info.get_port()
                 ));
             }
-        }
     }
 
     Ok(discovered)

@@ -46,24 +46,22 @@ pub fn get_auth_token() -> Option<String> {
             return Some(trimmed);
         }
     }
-    if let Ok(entry) = keyring::Entry::new("ctx", "token") {
-        if let Ok(token) = entry.get_password() {
+    if let Ok(entry) = keyring::Entry::new("ctx", "token")
+        && let Ok(token) = entry.get_password() {
             let trimmed = token.trim().to_string();
             if !trimmed.is_empty() {
                 return Some(trimmed);
             }
         }
-    }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let token_path = global_dir.join("token");
-        if token_path.exists() {
-            if let Ok(token) = fs::read_to_string(&token_path) {
+        if token_path.exists()
+            && let Ok(token) = fs::read_to_string(&token_path) {
                 let trimmed = token.trim().to_string();
                 if !trimmed.is_empty() {
                     return Some(trimmed);
                 }
             }
-        }
     }
     None
 }
@@ -187,13 +185,11 @@ pub async fn pull_project(project_dir: &Path) -> Result<()> {
 pub fn discover_registered_projects() -> Vec<PathBuf> {
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let list_path = global_dir.join("projects.json");
-        if list_path.exists() {
-            if let Ok(content) = fs::read_to_string(&list_path) {
-                if let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&content) {
+        if list_path.exists()
+            && let Ok(content) = fs::read_to_string(&list_path)
+                && let Ok(paths) = serde_json::from_str::<Vec<PathBuf>>(&content) {
                     return paths;
                 }
-            }
-        }
     }
     Vec::new()
 }

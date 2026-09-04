@@ -10,8 +10,8 @@ pub async fn projects(_config: &GlobalConfig) -> Result<()> {
     println!("Tracked ctx projects:");
     println!("──────────────────────────────────────────");
 
-    if let Ok(cur) = std::env::current_dir() {
-        if let Ok(proj) = ProjectConfig::load(&cur) {
+    if let Ok(cur) = std::env::current_dir()
+        && let Ok(proj) = ProjectConfig::load(&cur) {
             println!(
                 "  • {} ({})\n    Server: {}\n    Branch: {}\n    Path:   {}",
                 proj.project.name,
@@ -23,7 +23,6 @@ pub async fn projects(_config: &GlobalConfig) -> Result<()> {
             println!("──────────────────────────────────────────");
             return Ok(());
         }
-    }
 
     println!("  No active project detected in current working directory.");
     println!("  Run `ctx init <name>` to track a project here.");

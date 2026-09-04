@@ -196,16 +196,14 @@ impl OpenCodeAdapter {
 
     /// Checks if OpenCode is installed by verifying binary existence in `PATH` or data directory existence.
     pub fn is_installed(&self) -> bool {
-        if let Some(dir) = self.resolve_data_dir() {
-            if dir.is_dir() {
+        if let Some(dir) = self.resolve_data_dir()
+            && dir.is_dir() {
                 return true;
             }
-        }
-        if let Some(db) = self.resolve_db_path() {
-            if db.is_file() {
+        if let Some(db) = self.resolve_db_path()
+            && db.is_file() {
                 return true;
             }
-        }
         check_binary_exists("opencode")
     }
 
@@ -585,15 +583,14 @@ impl OpenCodeAdapter {
                         let mut resolved_summary = part_content.clone();
 
                         if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&part_content) {
-                            if resolved_tail.is_none() {
-                                if let Some(t_id) = json_val.get("tail_start_id") {
+                            if resolved_tail.is_none()
+                                && let Some(t_id) = json_val.get("tail_start_id") {
                                     if let Some(s) = t_id.as_str() {
                                         resolved_tail = Some(s.to_string());
                                     } else if let Some(n) = t_id.as_i64() {
                                         resolved_tail = Some(n.to_string());
                                     }
                                 }
-                            }
                             if let Some(s) = json_val.get("summary").and_then(|v| v.as_str()) {
                                 resolved_summary = s.to_string();
                             } else if let Some(s) = json_val.get("content").and_then(|v| v.as_str()) {
@@ -609,11 +606,10 @@ impl OpenCodeAdapter {
                         }
                     } else {
                         // Supplement empty message content with text parts
-                        if let Some(msg) = raw_messages.iter_mut().find(|m| m.id == msg_id) {
-                            if msg.content.trim().is_empty() && !part_content.trim().is_empty() {
+                        if let Some(msg) = raw_messages.iter_mut().find(|m| m.id == msg_id)
+                            && msg.content.trim().is_empty() && !part_content.trim().is_empty() {
                                 msg.content = part_content;
                             }
-                        }
                     }
                 }
             }
@@ -925,13 +921,11 @@ impl OpenCodeAdapter {
             let date = extract_row_datetime(&row, "date_val");
             let msg_count: i64 = row.try_get("msg_count").unwrap_or(0);
 
-            if days > 0 {
-                if let Some(d) = date {
-                    if d < cutoff {
+            if days > 0
+                && let Some(d) = date
+                    && d < cutoff {
                         continue;
                     }
-                }
-            }
 
             sessions.push(SessionInfo {
                 id,
@@ -1082,11 +1076,10 @@ fn parse_sqlite_timestamp(raw: &str) -> Option<DateTime<Utc>> {
     }
 
     // "YYYY-MM-DD"
-    if let Ok(naive_date) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
-        if let Some(naive) = naive_date.and_hms_opt(0, 0, 0) {
+    if let Ok(naive_date) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+        && let Some(naive) = naive_date.and_hms_opt(0, 0, 0) {
             return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
         }
-    }
 
     // Epoch numeric strings
     if let Ok(ts) = trimmed.parse::<i64>() {
@@ -1171,24 +1164,21 @@ fn check_binary_exists(binary: &str) -> bool {
 
 /// Resolves the local system hostname safely without panicking.
 fn get_hostname() -> String {
-    if let Ok(host) = std::env::var("HOSTNAME") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOSTNAME")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(host) = std::env::var("HOST") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOST")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(output) = std::process::Command::new("hostname").output() {
-        if output.status.success() {
+    if let Ok(output) = std::process::Command::new("hostname").output()
+        && output.status.success() {
             let host = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !host.is_empty() {
                 return host;
             }
         }
-    }
     "localhost".to_string()
 }
 
@@ -1344,11 +1334,7 @@ fn parse_checkbox_task(line: &str) -> Option<TaskItem> {
         .or_else(|| trimmed.strip_prefix("[/] "))
     {
         Some(parse_task_item(rest, TaskStatus::Partial))
-    } else if let Some(rest) = trimmed.strip_prefix("[ ] ") {
-        Some(parse_task_item(rest, TaskStatus::Pending))
-    } else {
-        None
-    }
+    } else { trimmed.strip_prefix("[ ] ").map(|rest| parse_task_item(rest, TaskStatus::Pending)) }
 }
 
 /// Extracts list item text after bullet or number marker.
@@ -1383,12 +1369,11 @@ fn parse_task_item(desc: &str, status: TaskStatus) -> TaskItem {
 /// Parses a decision line formatted as `**what**: why` or `what: why`.
 fn parse_decision(desc: &str) -> Decision {
     let trimmed = desc.trim();
-    if let Some(rest) = trimmed.strip_prefix("**") {
-        if let Some((what, after_what)) = rest.split_once("**:") {
+    if let Some(rest) = trimmed.strip_prefix("**")
+        && let Some((what, after_what)) = rest.split_once("**:") {
             let why = after_what.trim();
             return Decision::now(what.trim(), why);
         }
-    }
     if let Some((what, why)) = trimmed.split_once(':') {
         Decision::now(what.trim(), why.trim())
     } else {

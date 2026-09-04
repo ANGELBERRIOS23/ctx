@@ -119,11 +119,10 @@ impl CursorAdapter {
 
     /// Returns `true` if the `cursor` binary exists in `PATH` or `~/.cursor/` exists.
     pub fn is_installed(&self) -> bool {
-        if let Some(home) = self.resolve_cursor_home() {
-            if home.is_dir() {
+        if let Some(home) = self.resolve_cursor_home()
+            && home.is_dir() {
                 return true;
             }
-        }
         Self::check_binary_exists("cursor")
     }
 
@@ -259,11 +258,10 @@ impl CursorAdapter {
         let mut candidates = Vec::new();
 
         // 1. Search in configured cursor_home or ~/.cursor/
-        if let Some(home) = self.resolve_cursor_home() {
-            if home.is_dir() {
+        if let Some(home) = self.resolve_cursor_home()
+            && home.is_dir() {
                 collect_sqlite_files(&home, &mut candidates, 0, 5);
             }
-        }
 
         // 2. Search in standard OS Cursor application directories
         for standard_dir in self.resolve_standard_storage_dirs() {
@@ -309,7 +307,7 @@ impl CursorAdapter {
                 }
 
                 let mut result: Vec<ComposerSession> = sessions_map.into_values().collect();
-                result.sort_by(|a, b| b.effective_timestamp().cmp(&a.effective_timestamp()));
+                result.sort_by_key(|b| std::cmp::Reverse(b.effective_timestamp()));
                 Ok(result)
             })
         })
@@ -342,7 +340,7 @@ impl CursorAdapter {
                 }
 
                 let mut result: Vec<ComposerSession> = sessions_map.into_values().collect();
-                result.sort_by(|a, b| b.effective_timestamp().cmp(&a.effective_timestamp()));
+                result.sort_by_key(|b| std::cmp::Reverse(b.effective_timestamp()));
                 Ok(result)
             })
         })
@@ -511,11 +509,10 @@ impl CursorAdapter {
             // 2. Title or content match on project name
             if !proj_name.is_empty() {
                 for s in sessions {
-                    if let Some(ref t) = s.title {
-                        if t.to_lowercase().contains(&proj_name) {
+                    if let Some(ref t) = s.title
+                        && t.to_lowercase().contains(&proj_name) {
                             return Some(s);
                         }
-                    }
                 }
             }
         }
@@ -532,11 +529,10 @@ impl CursorAdapter {
         } else {
             "which"
         };
-        if let Ok(output) = std::process::Command::new(which_cmd).arg(binary).output() {
-            if output.status.success() {
+        if let Ok(output) = std::process::Command::new(which_cmd).arg(binary).output()
+            && output.status.success() {
                 return true;
             }
-        }
 
         // Fallback: inspect PATH directories directly
         if let Some(path_var) = std::env::var_os("PATH") {
@@ -686,16 +682,13 @@ fn collect_sqlite_files(dir: &Path, files: &mut Vec<PathBuf>, current_depth: usi
 fn extract_workspace_path_from_db_dir(db_path: &Path) -> Option<String> {
     let parent = db_path.parent()?;
     let workspace_json = parent.join("workspace.json");
-    if workspace_json.is_file() {
-        if let Ok(content) = fs::read_to_string(&workspace_json) {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(folder) = val.get("folder").and_then(|f| f.as_str()) {
+    if workspace_json.is_file()
+        && let Ok(content) = fs::read_to_string(&workspace_json)
+            && let Ok(val) = serde_json::from_str::<serde_json::Value>(&content)
+                && let Some(folder) = val.get("folder").and_then(|f| f.as_str()) {
                     let cleaned = folder.strip_prefix("file://").unwrap_or(folder);
                     return Some(cleaned.to_string());
                 }
-            }
-        }
-    }
     None
 }
 
@@ -746,8 +739,8 @@ pub async fn load_sessions_from_db_async(db_path: &Path) -> Result<Vec<ComposerS
     let default_workspace = extract_workspace_path_from_db_dir(db_path);
 
     // 1. Process `cursorDiskKV` table
-    if table_names.iter().any(|t| t == "cursorDiskKV") {
-        if let Ok(rows) = sqlx::query(
+    if table_names.iter().any(|t| t == "cursorDiskKV")
+        && let Ok(rows) = sqlx::query(
             "SELECT key, value FROM cursorDiskKV WHERE key LIKE 'composerData:%' OR key LIKE 'bubbleId:%'",
         )
         .fetch_all(&mut conn)
@@ -755,11 +748,10 @@ pub async fn load_sessions_from_db_async(db_path: &Path) -> Result<Vec<ComposerS
         {
             parse_cursor_disk_kv_rows(rows, &mut sessions_map, default_workspace.as_deref());
         }
-    }
 
     // 2. Process `ItemTable` table
-    if table_names.iter().any(|t| t == "ItemTable") {
-        if let Ok(rows) = sqlx::query(
+    if table_names.iter().any(|t| t == "ItemTable")
+        && let Ok(rows) = sqlx::query(
             "SELECT key, value FROM ItemTable WHERE key = 'composer.composerData' OR key LIKE '%composer%' OR key LIKE '%chatdata%'",
         )
         .fetch_all(&mut conn)
@@ -767,11 +759,10 @@ pub async fn load_sessions_from_db_async(db_path: &Path) -> Result<Vec<ComposerS
         {
             parse_item_table_rows(rows, &mut sessions_map, default_workspace.as_deref());
         }
-    }
 
     // 3. Process generic `composer_sessions` table (if present in custom/test schemas)
-    if table_names.iter().any(|t| t == "composer_sessions") {
-        if let Ok(rows) = sqlx::query(
+    if table_names.iter().any(|t| t == "composer_sessions")
+        && let Ok(rows) = sqlx::query(
             "SELECT id, title, data, created_at, updated_at FROM composer_sessions",
         )
         .fetch_all(&mut conn)
@@ -783,10 +774,9 @@ pub async fn load_sessions_from_db_async(db_path: &Path) -> Result<Vec<ComposerS
                 default_workspace.as_deref(),
             );
         }
-    }
 
     let mut result: Vec<ComposerSession> = sessions_map.into_values().collect();
-    result.sort_by(|a, b| b.effective_timestamp().cmp(&a.effective_timestamp()));
+    result.sort_by_key(|b| std::cmp::Reverse(b.effective_timestamp()));
     Ok(result)
 }
 
@@ -856,11 +846,10 @@ fn parse_cursor_disk_kv_rows(
                     .and_then(|v| v.as_array())
                 {
                     for item in arr {
-                        if let Some(msg) = parse_bubble_json(item) {
-                            if !session.messages.iter().any(|m| m.text == msg.text) {
+                        if let Some(msg) = parse_bubble_json(item)
+                            && !session.messages.iter().any(|m| m.text == msg.text) {
                                 session.messages.push(msg);
                             }
-                        }
                     }
                 }
             }
@@ -1007,11 +996,10 @@ fn parse_composer_object(
         .and_then(|v| v.as_array())
     {
         for item in arr {
-            if let Some(msg) = parse_bubble_json(item) {
-                if !session.messages.iter().any(|m| m.text == msg.text) {
+            if let Some(msg) = parse_bubble_json(item)
+                && !session.messages.iter().any(|m| m.text == msg.text) {
                     session.messages.push(msg);
                 }
-            }
         }
     }
 }
@@ -1241,16 +1229,14 @@ fn filter_sessions_by_query(
             if session.id.to_lowercase().contains(&query_trimmed) {
                 return true;
             }
-            if let Some(ref title) = session.title {
-                if title.to_lowercase().contains(&query_trimmed) {
+            if let Some(ref title) = session.title
+                && title.to_lowercase().contains(&query_trimmed) {
                     return true;
                 }
-            }
-            if let Some(ref wp) = session.workspace_path {
-                if wp.to_lowercase().contains(&query_trimmed) {
+            if let Some(ref wp) = session.workspace_path
+                && wp.to_lowercase().contains(&query_trimmed) {
                     return true;
                 }
-            }
             session.messages.iter().any(|msg| {
                 msg.text.to_lowercase().contains(&query_trimmed)
                     || msg.role.to_lowercase().contains(&query_trimmed)
@@ -1447,11 +1433,7 @@ fn parse_checkbox_task(line: &str) -> Option<TaskItem> {
         .or_else(|| trimmed.strip_prefix("[/] "))
     {
         Some(parse_task_item(rest, TaskStatus::Partial))
-    } else if let Some(rest) = trimmed.strip_prefix("[ ] ") {
-        Some(parse_task_item(rest, TaskStatus::Pending))
-    } else {
-        None
-    }
+    } else { trimmed.strip_prefix("[ ] ").map(|rest| parse_task_item(rest, TaskStatus::Pending)) }
 }
 
 /// Extracts list item text after a bullet or numeric marker.
@@ -1494,8 +1476,8 @@ fn parse_decision(desc: &str) -> Decision {
         .unwrap_or(trimmed)
         .trim();
 
-    if let Some(rest) = trimmed.strip_prefix("**") {
-        if let Some((what, after_what)) = rest.split_once("**") {
+    if let Some(rest) = trimmed.strip_prefix("**")
+        && let Some((what, after_what)) = rest.split_once("**") {
             let why = after_what
                 .trim()
                 .strip_prefix(':')
@@ -1504,7 +1486,6 @@ fn parse_decision(desc: &str) -> Decision {
                 .trim();
             return Decision::now(what.trim(), why);
         }
-    }
     if let Some((what, why)) = trimmed.split_once(':') {
         Decision::now(what.trim(), why.trim())
     } else if let Some((what, why)) = trimmed.split_once(" - ") {
@@ -1541,24 +1522,21 @@ fn detect_git_info(project_dir: &Path) -> (String, String) {
 
 /// Resolves the local system hostname safely without panicking.
 fn get_hostname() -> String {
-    if let Ok(host) = std::env::var("HOSTNAME") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOSTNAME")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(host) = std::env::var("HOST") {
-        if !host.trim().is_empty() {
+    if let Ok(host) = std::env::var("HOST")
+        && !host.trim().is_empty() {
             return host.trim().to_string();
         }
-    }
-    if let Ok(output) = std::process::Command::new("hostname").output() {
-        if output.status.success() {
+    if let Ok(output) = std::process::Command::new("hostname").output()
+        && output.status.success() {
             let host = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !host.is_empty() {
                 return host;
             }
         }
-    }
     "unknown-host".to_string()
 }
 

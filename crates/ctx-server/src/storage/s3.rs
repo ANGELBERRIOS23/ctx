@@ -136,11 +136,10 @@ impl StorageBackend for S3BlobStore {
                 Ok(Some(bytes))
             }
             Err(err) => {
-                if let SdkError::ServiceError(ref service_err) = err {
-                    if service_err.err().is_no_such_key() {
+                if let SdkError::ServiceError(ref service_err) = err
+                    && service_err.err().is_no_such_key() {
                         return Ok(None);
                     }
-                }
                 Err(StorageError::S3(err.to_string()))
             }
         }

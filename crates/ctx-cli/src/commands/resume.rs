@@ -110,12 +110,11 @@ pub async fn run(agent: Option<String>) -> Result<()> {
     let instructions = adapter.generate_instructions(&handoff);
     let instruction_path = adapter.instruction_path(&project_dir);
 
-    if let Some(parent) = instruction_path.parent() {
-        if !parent.exists() {
+    if let Some(parent) = instruction_path.parent()
+        && !parent.exists() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
         }
-    }
     fs::write(&instruction_path, &instructions)
         .with_context(|| format!("Failed to write instruction file at {}", instruction_path.display()))?;
 

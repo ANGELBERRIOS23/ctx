@@ -41,44 +41,39 @@ pub fn get_auth_token() -> Option<String> {
             return Some(trimmed);
         }
     }
-    if let Ok(entry) = keyring::Entry::new("ctx", "token") {
-        if let Ok(token) = entry.get_password() {
+    if let Ok(entry) = keyring::Entry::new("ctx", "token")
+        && let Ok(token) = entry.get_password() {
             let trimmed = token.trim().to_string();
             if !trimmed.is_empty() {
                 return Some(trimmed);
             }
         }
-    }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let token_path = global_dir.join("token");
-        if token_path.exists() {
-            if let Ok(token) = fs::read_to_string(&token_path) {
+        if token_path.exists()
+            && let Ok(token) = fs::read_to_string(&token_path) {
                 let trimmed = token.trim().to_string();
                 if !trimmed.is_empty() {
                     return Some(trimmed);
                 }
             }
-        }
     }
     None
 }
 
 /// Retrieves or generates a persistent machine identifier.
 pub fn get_machine_id() -> Uuid {
-    if let Ok(id_str) = std::env::var("CTX_MACHINE_ID") {
-        if let Ok(id) = Uuid::parse_str(id_str.trim()) {
+    if let Ok(id_str) = std::env::var("CTX_MACHINE_ID")
+        && let Ok(id) = Uuid::parse_str(id_str.trim()) {
             return id;
         }
-    }
     if let Ok(global_dir) = GlobalConfig::global_dir() {
         let machine_file = global_dir.join("machine_id");
-        if machine_file.exists() {
-            if let Ok(content) = fs::read_to_string(&machine_file) {
-                if let Ok(id) = Uuid::parse_str(content.trim()) {
+        if machine_file.exists()
+            && let Ok(content) = fs::read_to_string(&machine_file)
+                && let Ok(id) = Uuid::parse_str(content.trim()) {
                     return id;
                 }
-            }
-        }
         let new_id = Uuid::new_v4();
         let _ = fs::create_dir_all(&global_dir);
         let _ = fs::write(&machine_file, new_id.to_string());
@@ -149,13 +144,11 @@ pub async fn fetch_active_machine_name(
     if let Some(t) = token {
         m_req = m_req.bearer_auth(t);
     }
-    if let Ok(m_resp) = m_req.send().await {
-        if m_resp.status().is_success() {
-            if let Ok(machine_info) = m_resp.json::<ctx_core::protocol::MachineInfo>().await {
+    if let Ok(m_resp) = m_req.send().await
+        && m_resp.status().is_success()
+            && let Ok(machine_info) = m_resp.json::<ctx_core::protocol::MachineInfo>().await {
                 return Some(machine_info.name);
             }
-        }
-    }
     Some(active_machine_id.to_string())
 }
 
