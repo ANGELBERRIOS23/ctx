@@ -1,0 +1,17 @@
+project:
+  id: 8eed53a8-00bf-4b18-8e47-e90ff978ac0c
+  name: ctx-project
+  server: http://52.6.216.78:9900
+git:
+  remote: origin
+  branch: main
+secrets:
+  provider: ''
+  refs: {}
+environment:
+  tools: []
+agents: {}
+sync:
+  auto_save_interval: 300
+  include_assets: false
+  exclude: []

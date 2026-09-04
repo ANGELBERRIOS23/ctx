@@ -40,6 +40,20 @@ pub fn get_auth_token() -> Option<String> {
                 }
             }
     }
+    // Fallback: read from .ctx/auth.json in current project directory
+    let auth_path = std::path::Path::new(".ctx/auth.json");
+    if auth_path.exists() {
+        if let Ok(content) = fs::read_to_string(auth_path) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(token) = v.get("access_token").and_then(|t| t.as_str()) {
+                    let trimmed = token.trim().to_string();
+                    if !trimmed.is_empty() {
+                        return Some(trimmed);
+                    }
+                }
+            }
+        }
+    }
     None
 }
 

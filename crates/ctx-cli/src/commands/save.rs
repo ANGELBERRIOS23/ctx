@@ -176,9 +176,20 @@ pub async fn save_project_context(project_dir: &Path, message: Option<String>) -
             let encrypted_blob = encrypt_bytes(&pub_key, &handoff_bytes)
                 .unwrap_or(handoff_bytes);
 
+            // Derive a deterministic machine_id from hostname
+            let hostname = std::process::Command::new("hostname")
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+            let machine_hash = ctx_core::crypto::hash_sha256(hostname.as_bytes());
+            let machine_id = Uuid::parse_str(&format!(
+                "00000000-0000-0000-0000-{}",
+                &machine_hash[..12]
+            )).unwrap_or_else(|_| Uuid::new_v4());
+
             let snapshot = SyncSnapshot::new(
                 cfg.project.id,
-                Uuid::new_v4(),
+                machine_id,
                 SnapshotType::Manual,
                 &cfg.git.branch,
                 encrypted_blob,
@@ -187,7 +198,14 @@ pub async fn save_project_context(project_dir: &Path, message: Option<String>) -
             let client = reqwest::Client::new();
             let push_endpoint = format!("{}/api/sync/push", server_url);
 
-            match client.post(&push_endpoint).json(&snapshot).send().await {
+            // Get auth token from keyring, env, or .ctx/auth.json
+            let token = crate::commands::push::get_auth_token();
+            let mut req = client.post(&push_endpoint).json(&snapshot);
+            if let Some(ref t) = token {
+                req = req.header("Authorization", format!("Bearer {}", t));
+            }
+
+            match req.send().await {
                 Ok(resp) if resp.status().is_success() => {
                     push_status = format!("Pushed successfully to {}", server_url);
                 }
