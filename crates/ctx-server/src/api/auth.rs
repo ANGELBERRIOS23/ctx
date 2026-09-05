@@ -23,7 +23,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 /// Default lifetime for access tokens in seconds (15 minutes).
-pub const ACCESS_TOKEN_EXPIRATION_SECS: u64 = 30 * 24 * 60 * 60;
+pub const ACCESS_TOKEN_EXPIRATION_SECS: u64 = 365 * 24 * 60 * 60;
 
 /// Default lifetime for refresh tokens in seconds (7 days).
 pub const REFRESH_TOKEN_EXPIRATION_SECS: u64 = 7 * 24 * 60 * 60;
@@ -430,8 +430,191 @@ pub async fn login(
     Ok(Json(AuthResponse {
         access_token,
         refresh_token,
+         expires_in: ACCESS_TOKEN_EXPIRATION_SECS,
+    }))
+}
+
+// ─── TOTP (Google Authenticator) ────────────────────────────────────
+
+/// Request to set up TOTP for an existing user.
+#[derive(Debug, Deserialize)]
+pub struct SetupTotpRequest {
+    pub email: String,
+    pub password: String,
+}
+
+/// Response with the TOTP secret and otpauth URL for QR scanning.
+#[derive(Debug, Serialize)]
+pub struct SetupTotpResponse {
+    pub secret: String,
+    pub otpauth_url: String,
+    pub message: String,
+}
+
+/// Request to verify TOTP setup or login with TOTP.
+#[derive(Debug, Deserialize)]
+pub struct TotpLoginRequest {
+    pub email: String,
+    pub code: String,
+}
+
+/// Generates a TOTP secret for a user. User must verify with a code to activate.
+/// POST /api/auth/totp/setup
+pub async fn setup_totp(
+    State(pool): State<PgPool>,
+    Json(req): Json<SetupTotpRequest>,
+) -> Result<Json<SetupTotpResponse>, StatusCode> {
+    let email = req.email.trim();
+
+    // Verify password first
+    let row = sqlx::query("SELECT id, password_hash FROM users WHERE email = $1")
+        .bind(email)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let row = row.ok_or(StatusCode::NOT_FOUND)?;
+    let stored_hash: String = row.get("password_hash");
+    verify_password(&req.password, &stored_hash).map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    // Generate TOTP secret (20 random bytes → base32)
+    let secret_bytes: [u8; 20] = rand::random();
+    let secret_b32 = base32::encode(base32::Alphabet::Rfc4648 { padding: false }, &secret_bytes);
+
+    // Store (not yet enabled — user must verify first)
+    sqlx::query("UPDATE users SET totp_secret = $1 WHERE email = $2")
+        .bind(&secret_b32)
+        .bind(email)
+        .execute(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let otpauth_url = format!(
+        "otpauth://totp/ctx:{}?secret={}&issuer=ctx&digits=6&period=30",
+        email, secret_b32
+    );
+
+    Ok(Json(SetupTotpResponse {
+        secret: secret_b32,
+        otpauth_url,
+        message: "Scan the QR or enter the secret in Google Authenticator. Then POST /api/auth/totp/verify with your 6-digit code to activate.".to_string(),
+    }))
+}
+
+/// Verifies the TOTP code and activates TOTP for the user.
+/// POST /api/auth/totp/verify
+pub async fn verify_totp_setup(
+    State(pool): State<PgPool>,
+    Json(req): Json<TotpLoginRequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    let email = req.email.trim();
+    let row = sqlx::query("SELECT id, totp_secret FROM users WHERE email = $1")
+        .bind(email)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let row = row.ok_or(StatusCode::NOT_FOUND)?;
+    let user_id: Uuid = row.get("id");
+    let secret_b32: Option<String> = row.get("totp_secret");
+    let secret_b32 = secret_b32.ok_or(StatusCode::BAD_REQUEST)?;
+
+    // Verify the code
+    if !verify_totp_code(&secret_b32, &req.code) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Activate TOTP
+    sqlx::query("UPDATE users SET totp_enabled = true WHERE id = $1")
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Return permanent token
+    let secret = get_jwt_secret();
+    let access_token = create_jwt(user_id, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let refresh_token = create_refresh_jwt(user_id, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(AuthResponse {
+        access_token,
+        refresh_token,
         expires_in: ACCESS_TOKEN_EXPIRATION_SECS,
     }))
+}
+
+/// Login with TOTP code only (no password). For users with TOTP enabled.
+/// POST /api/auth/totp/login
+pub async fn totp_login(
+    State(pool): State<PgPool>,
+    Json(req): Json<TotpLoginRequest>,
+) -> Result<Json<AuthResponse>, StatusCode> {
+    let email = req.email.trim();
+    let row = sqlx::query("SELECT id, totp_secret, totp_enabled FROM users WHERE email = $1")
+        .bind(email)
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| {
+            tracing::error!("TOTP login DB error: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let row = row.ok_or(StatusCode::UNAUTHORIZED)?;
+    let user_id: Uuid = row.get("id");
+    let totp_enabled: bool = row.get::<Option<bool>, _>("totp_enabled").unwrap_or(false);
+    let secret_b32: Option<String> = row.get("totp_secret");
+
+    if !totp_enabled || secret_b32.is_none() {
+        tracing::warn!("TOTP login attempt for {email} but TOTP not enabled");
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if !verify_totp_code(secret_b32.as_ref().unwrap(), &req.code) {
+        tracing::warn!("TOTP login failed for {email}: invalid code");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Audit log
+    sqlx::query("INSERT INTO audit_log (user_id, action, detail) VALUES ($1, $2, $3)")
+        .bind(user_id)
+        .bind("login-totp")
+        .bind(format!("email={}", email))
+        .execute(&pool)
+        .await
+        .ok();
+
+    let secret = get_jwt_secret();
+    let access_token = create_jwt(user_id, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let refresh_token = create_refresh_jwt(user_id, &secret).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(AuthResponse {
+        access_token,
+        refresh_token,
+        expires_in: ACCESS_TOKEN_EXPIRATION_SECS,
+    }))
+}
+
+/// Verifies a 6-digit TOTP code against a base32 secret.
+fn verify_totp_code(secret_b32: &str, code: &str) -> bool {
+    let secret_bytes = match base32::decode(base32::Alphabet::Rfc4648 { padding: false }, secret_b32) {
+        Some(b) => b,
+        None => return false,
+    };
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    // Check current period and ±1 to allow for clock drift
+    for offset in [0i64, -1, 1] {
+        let period = ((now as i64 + offset * 30) / 30) as u64;
+        let expected = totp_lite::totp_custom::<totp_lite::Sha1>(30, 6, &secret_bytes, period);
+        if expected == code {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]

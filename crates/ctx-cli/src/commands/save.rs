@@ -119,10 +119,24 @@ pub async fn save_project_context(project_dir: &Path, message: Option<String>) -
     let agent = detect_active_agent(project_dir, config.as_ref());
     let agent_name = agent.name().to_string();
 
-    // Extract or synthesize handoff
-    let mut handoff = agent
-        .extract_handoff(project_dir)
-        .unwrap_or_else(|_| Handoff::for_project(&project_name));
+    // Use existing handoff.md if present (user may have written it manually
+    // or it was pulled from another machine). Only extract from agent if
+    // no handoff.md exists at all.
+    let handoff_path = project_dir.join(".ctx").join("handoff.md");
+    let mut handoff = if handoff_path.exists() {
+        // Read existing handoff (may be manually written or pulled from server)
+        let content = std::fs::read_to_string(&handoff_path).unwrap_or_default();
+        // Try parsing as JSON first (server format), fallback to using as summary text
+        Handoff::from_json(&content).unwrap_or_else(|_| {
+            let mut h = Handoff::for_project(&project_name);
+            h.summary = content;
+            h
+        })
+    } else {
+        agent
+            .extract_handoff(project_dir)
+            .unwrap_or_else(|_| Handoff::for_project(&project_name))
+    };
 
     if handoff.project_name.is_empty() {
         handoff.project_name = project_name.clone();
@@ -132,15 +146,11 @@ pub async fn save_project_context(project_dir: &Path, message: Option<String>) -
         handoff.source_machine = hostname;
     }
 
-    // Append or set summary if custom message was provided
+    // Set summary from custom message (replaces agent-extracted summary)
     if let Some(msg) = message {
         let trimmed = msg.trim();
         if !trimmed.is_empty() {
-            if handoff.summary.trim().is_empty() {
-                handoff.summary = trimmed.to_string();
-            } else {
-                handoff.summary = format!("{}\n\n{}", handoff.summary.trim(), trimmed);
-            }
+            handoff.summary = trimmed.to_string();
         }
     }
 

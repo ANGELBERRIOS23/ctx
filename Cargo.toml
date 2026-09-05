@@ -75,3 +75,6 @@ sha2 = "0.10"
 lto = true
 strip = true
 codegen-units = 1
+
+# TOTP (Google Authenticator)
+totp-lite = "2"

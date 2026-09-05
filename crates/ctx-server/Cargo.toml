@@ -26,3 +26,5 @@ aws-sdk-s3 = { workspace = true }
 aws-config = { workspace = true }
 clap = { workspace = true }
 
+totp-lite = "2"
+base32 = "0.5"
