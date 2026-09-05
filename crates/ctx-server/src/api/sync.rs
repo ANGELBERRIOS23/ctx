@@ -186,6 +186,17 @@ pub async fn push_snapshot(
     .await
     .ok();
 
+    // Audit log
+    sqlx::query("INSERT INTO audit_log (user_id, project_id, machine_name, action, detail) VALUES ($1, $2, $3, $4, $5)")
+        .bind(_claims.sub)
+        .bind(snapshot.project_id)
+        .bind(snapshot.machine_id.to_string())
+        .bind("push")
+        .bind(format!("type={} commit={} size={}B", snapshot_type_str, snapshot.git_commit, snapshot.handoff_blob.len()))
+        .execute(&pool)
+        .await
+        .ok();
+
     let response = PushSnapshotResponse::new(
         snapshot.id,
         snapshot.project_id,
@@ -254,6 +265,36 @@ pub async fn list_snapshots(
     }
 
     Ok(Json(snapshots))
+}
+
+/// Audit log entry returned by the history endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AuditEntry {
+    pub id: Uuid,
+    pub action: String,
+    pub machine_name: Option<String>,
+    pub detail: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// GET /api/audit/:project_id — returns last 50 audit entries for a project.
+pub async fn get_audit_log(
+    State(pool): State<PgPool>,
+    _claims: Claims,
+    axum::extract::Path(project_id): axum::extract::Path<Uuid>,
+) -> Result<Json<Vec<AuditEntry>>, StatusCode> {
+    let rows: Vec<AuditEntry> = sqlx::query_as(
+        r#"SELECT id, action, machine_name, detail, created_at FROM audit_log
+           WHERE project_id = $1 ORDER BY created_at DESC LIMIT 50"#,
+    )
+    .bind(project_id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Audit log query error: {e}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    Ok(Json(rows))
 }
 
 #[cfg(test)]

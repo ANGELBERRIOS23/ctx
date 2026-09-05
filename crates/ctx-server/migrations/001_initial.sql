@@ -116,3 +116,18 @@ CREATE TABLE IF NOT EXISTS secret_refs (
 
 CREATE INDEX IF NOT EXISTS idx_secret_refs_project_id ON secret_refs(project_id);
 CREATE INDEX IF NOT EXISTS idx_secret_refs_key_name ON secret_refs(project_id, key_name);
+
+-- Audit log for tracking all sync/auth activity
+CREATE TABLE IF NOT EXISTS audit_log (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     uuid REFERENCES users(id),
+    project_id  uuid,
+    machine_name text,
+    action      text NOT NULL,
+    detail      text,
+    ip_address  text,
+    created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_project ON audit_log(project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id, created_at DESC);

@@ -271,7 +271,25 @@ pub async fn run(server_url: Option<String>) -> Result<()> {
         .interact()
         .context("Failed to read password input")?;
 
-    login_with_credentials(&resolved_server, &email, &password).await?;
+    let auth = login_with_credentials(&resolved_server, &email, &password).await?;
+
+    // Save token to file fallbacks (keychain may not work in all environments)
+    // Global fallback: ~/.ctx/token
+    if let Some(home) = dirs::home_dir() {
+        let global_ctx = home.join(".ctx");
+        std::fs::create_dir_all(&global_ctx).ok();
+        std::fs::write(global_ctx.join("token"), &auth.access_token).ok();
+    }
+    // Project-local fallback: .ctx/auth.json (if .ctx/ exists in cwd)
+    let local_ctx = std::path::Path::new(".ctx");
+    if local_ctx.is_dir() {
+        let auth_json = serde_json::json!({
+            "server": &resolved_server,
+            "email": &email,
+            "access_token": &auth.access_token
+        });
+        std::fs::write(local_ctx.join("auth.json"), auth_json.to_string()).ok();
+    }
 
     println!(
         "{} Successfully authenticated as {}",
@@ -279,7 +297,7 @@ pub async fn run(server_url: Option<String>) -> Result<()> {
         style(&email).cyan().bold()
     );
     println!("  Server:   {}", style(&resolved_server).dim());
-    println!("  Keychain: JWT token saved securely in OS credential store.");
+    println!("  Token saved to keychain + ~/.ctx/token");
 
     Ok(())
 }

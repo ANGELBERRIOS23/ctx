@@ -54,6 +54,8 @@ pub fn create_routes() -> Router<PgPool> {
         .route("/api/sync/push", post(sync::push_snapshot))
         .route("/api/sync/latest/{project_id}", get(sync::pull_latest))
         .route("/api/sync/{project_id}/history", get(sync::list_snapshots))
+        // Audit log
+        .route("/api/audit/{project_id}", get(sync::get_audit_log))
         // Session lock routes
         .route("/api/session/claim", post(session::claim_session))
         .route("/api/session/release", post(session::release_session))

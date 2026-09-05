@@ -167,12 +167,36 @@ pub async fn save_project_context(project_dir: &Path, message: Option<String>) -
     let mut push_status = "Skipped (no server configured)".to_string();
     if let Some(ref cfg) = config {
         let server_url = cfg.project.server.trim_end_matches('/');
-        if !server_url.is_empty() {
+         if !server_url.is_empty() {
             let handoff_bytes = serde_json::to_vec(&handoff)
                 .context("Failed to serialize handoff to JSON")?;
 
-            // Encrypt before transit
-            let (pub_key, _) = generate_keypair();
+            // Load or create persistent keypair in .ctx/
+            let ctx_dir = ProjectConfig::ctx_dir(project_dir);
+            let key_path = ctx_dir.join("key.txt");
+            let pub_path = ctx_dir.join("key.pub");
+            let (pub_key, _secret_key) = if key_path.exists() && pub_path.exists() {
+                let pk = std::fs::read_to_string(&pub_path)
+                    .context("Failed to read .ctx/key.pub")?
+                    .trim().to_string();
+                let sk = std::fs::read_to_string(&key_path)
+                    .context("Failed to read .ctx/key.txt")?
+                    .trim().to_string();
+                (pk, sk)
+            } else {
+                let (pk, sk) = generate_keypair();
+                std::fs::write(&key_path, &sk)
+                    .context("Failed to write .ctx/key.txt")?;
+                std::fs::write(&pub_path, &pk)
+                    .context("Failed to write .ctx/key.pub")?;
+                // Restrict permissions on secret key
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600)).ok();
+                }
+                (pk, sk)
+            };
             let encrypted_blob = encrypt_bytes(&pub_key, &handoff_bytes)
                 .unwrap_or(handoff_bytes);
 

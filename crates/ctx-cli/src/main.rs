@@ -118,6 +118,12 @@ pub enum Commands {
     Projects,
     /// List all registered machines in the sync network.
     Machines,
+    /// Show activity log (pushes, pulls, claims, logins) for a project.
+    History {
+        /// Project name (defaults to current project).
+        #[arg(short, long)]
+        project: Option<String>,
+    },
     /// Set or update a global configuration key-value pair.
     Config {
         /// Configuration key (e.g., "sync_mode", "interval").
@@ -181,6 +187,7 @@ pub async fn dispatch(command: Commands, config: &GlobalConfig) -> anyhow::Resul
         Commands::Env { wrap } => commands::env_cmd(config, wrap.as_deref()).await,
         Commands::Projects => commands::projects(config).await,
         Commands::Machines => commands::machines(config).await,
+        Commands::History { project } => commands::history(config, project.as_deref()).await,
         Commands::Config { key, value } => commands::config(config, &key, &value).await,
     }
 }

@@ -23,7 +23,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 /// Default lifetime for access tokens in seconds (15 minutes).
-pub const ACCESS_TOKEN_EXPIRATION_SECS: u64 = 15 * 60;
+pub const ACCESS_TOKEN_EXPIRATION_SECS: u64 = 30 * 24 * 60 * 60;
 
 /// Default lifetime for refresh tokens in seconds (7 days).
 pub const REFRESH_TOKEN_EXPIRATION_SECS: u64 = 7 * 24 * 60 * 60;

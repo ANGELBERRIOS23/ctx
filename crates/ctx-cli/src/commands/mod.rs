@@ -22,6 +22,7 @@ pub mod secrets;
 pub mod serve;
 pub mod status;
 pub mod sync_cmd;
+pub mod history;
 
 pub use claim::claim;
 pub use config::config;
@@ -43,6 +44,7 @@ pub use secrets::{secrets, SecretsCmd};
 pub use serve::serve;
 pub use status::status;
 pub use sync_cmd::{sync_cmd, SyncCmd};
+pub use history::run as history;
 
 #[cfg(test)]
 mod tests {
