@@ -554,10 +554,9 @@ fn parse_task_item(line: &str, default_status: Option<TaskStatus>) -> Option<Tas
         (TaskStatus::Partial, rest.trim())
     } else if let Some(rest) = line.strip_prefix("[ ] ") {
         (TaskStatus::Pending, rest.trim())
-    } else if let Some(st) = default_status {
-        (st, line)
     } else {
-        return None;
+        let st = default_status?;
+        (st, line)
     };
 
     if text.is_empty() {
